@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../App';
 import {
   View,
   Text,
@@ -24,6 +27,7 @@ const MOCK_PRODUCT = {
 };
 
 export function ProductDetailScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'ProductDetail'>>();
   const [isDeleting, setIsDeleting] = useState(false);
 
   function handleDelete() {
@@ -80,7 +84,7 @@ export function ProductDetailScreen() {
 
         {/* Botões de ação */}
         <View style={styles.actions}>
-          <TouchableOpacity style={styles.editBtn}>
+        <TouchableOpacity style={styles.editBtn} onPress={() => navigation.navigate('ProductForm')}>
             <Text style={styles.editBtnText}>✏️ Editar</Text>
           </TouchableOpacity>
           <TouchableOpacity

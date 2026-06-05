@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { ProductListScreen } from './src/screens/ProductListScreen';
 import { ProductDetailScreen } from './src/screens/ProductDetailScreen';
+import { ProductFormScreen } from './src/screens/ProductFormScreen';
 
 export type RootStackParamList = {
   Login: undefined;
   ProductList: undefined;
   ProductDetail: undefined;
+  ProductForm: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -38,6 +40,11 @@ export default function App() {
           name="ProductDetail"
           component={ProductDetailScreen}
           options={{ title: 'Detalhes do Produto' }}
+        />
+        <Stack.Screen
+          name="ProductForm"
+          component={ProductFormScreen}
+          options={{ title: 'Novo Produto' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

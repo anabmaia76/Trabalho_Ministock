@@ -115,7 +115,7 @@ export function ProductListScreen() {
       />
 
       {/* Botão flutuante — novo produto */}
-      <TouchableOpacity style={styles.fab}>
+      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('ProductForm')}>
         <Text style={styles.fabText}>＋</Text>
       </TouchableOpacity>
     </View>
