@@ -1,8 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
 import React, { useState } from 'react';
-
 import {
   View,
   Text,
@@ -14,22 +10,29 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-
+import { useAuth } from '../contexts/AuthContext';
 
 export function LoginScreen() {
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'Login'>>();
+  async function handleLogin() {
+    if (!username.trim() || !password.trim()) {
+      Alert.alert('Atenção', 'Preencha usuário e senha.');
+      return;
+    }
 
-function handleLogin() {
-  if (!username.trim() || !password.trim()) {
-    Alert.alert('Atenção', 'Preencha usuário e senha.');
-    return;
+    setIsLoading(true);
+    try {
+      await login(username.trim(), password);
+    } catch (error: any) {
+      Alert.alert('Erro ao entrar', error.message || 'Credenciais inválidas.');
+    } finally {
+      setIsLoading(false);
+    }
   }
-  navigation.navigate('ProductList');
-}
 
   return (
     <KeyboardAvoidingView
@@ -93,20 +96,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  logo: {
-    fontSize: 52,
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 28,
-  },
+  logo: { fontSize: 52, marginBottom: 8 },
+  title: { fontSize: 26, fontWeight: '700', color: '#111827' },
+  subtitle: { fontSize: 13, color: '#6B7280', marginBottom: 28 },
   input: {
     width: '100%',
     height: 48,
@@ -128,12 +120,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
 });

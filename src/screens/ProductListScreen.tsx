@@ -1,7 +1,4 @@
-import React, { useState } from 'react';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,28 +8,101 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
+  Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../App';
+import {
+  listProducts,
+  searchProducts,
+  listCategories,
+  getProductsByCategory,
+  Product,
+} from '../services/products';
+import { useAuth } from '../contexts/AuthContext';
 
-const MOCK_PRODUCTS = [
-  { id: 1, title: 'Camiseta Azul', category: 'clothing', price: 49.9, stock: 30, thumbnail: '' },
-  { id: 2, title: 'Tênis Esportivo', category: 'footwear', price: 199.9, stock: 12, thumbnail: '' },
-  { id: 3, title: 'Mochila Casual', category: 'bags', price: 129.9, stock: 8, thumbnail: '' },
-  { id: 4, title: 'Óculos de Sol', category: 'accessories', price: 89.9, stock: 25, thumbnail: '' },
-  { id: 5, title: 'Relógio Clássico', category: 'accessories', price: 299.9, stock: 5, thumbnail: '' },
-  { id: 6, title: 'Calça Jeans', category: 'clothing', price: 149.9, stock: 18, thumbnail: '' },
-];
+const PAGE_SIZE = 10;
 
-const MOCK_CATEGORIES = ['clothing', 'footwear', 'bags', 'accessories'];
+type Nav = NativeStackNavigationProp<RootStackParamList, 'ProductList'>;
 
 export function ProductListScreen() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'ProductList'>>();
+  const navigation = useNavigation<Nav>();
+  const { logout } = useAuth();
 
-  function handleRefresh() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const skipRef = useRef(0);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    listCategories().then(setCategories).catch(() => {});
+  }, []);
+
+  const fetchProducts = useCallback(async (reset: boolean) => {
+    const skip = reset ? 0 : skipRef.current;
+    try {
+      setError(null);
+      let result;
+
+      if (searchQuery.trim()) {
+        result = await searchProducts(searchQuery.trim(), PAGE_SIZE, skip);
+      } else if (selectedCategory) {
+        result = await getProductsByCategory(selectedCategory, PAGE_SIZE, skip);
+      } else {
+        result = await listProducts(PAGE_SIZE, skip);
+      }
+
+      if (reset) {
+        setProducts(result.products);
+        skipRef.current = result.products.length;
+      } else {
+        setProducts((prev) => [...prev, ...result.products]);
+        skipRef.current += result.products.length;
+      }
+
+      setHasMore(skipRef.current < result.total);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  }, [searchQuery, selectedCategory]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    fetchProducts(true).finally(() => setIsLoading(false));
+  }, [fetchProducts]);
+
+  useEffect(() => {
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => {}, 400);
+  }, [searchQuery]);
+
+  async function handleRefresh() {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1500);
+    await fetchProducts(true);
+    setIsRefreshing(false);
+  }
+
+  async function handleLoadMore() {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    await fetchProducts(false);
+    setIsLoadingMore(false);
+  }
+
+  function handleLogout() {
+    Alert.alert('Sair', 'Deseja realmente sair?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Sair', style: 'destructive', onPress: logout },
+    ]);
   }
 
   return (
@@ -40,7 +110,7 @@ export function ProductListScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>📦 MiniStock</Text>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={handleLogout}>
           <Text style={styles.logoutBtn}>Sair</Text>
         </TouchableOpacity>
       </View>
@@ -69,53 +139,82 @@ export function ProductListScreen() {
             Todos
           </Text>
         </TouchableOpacity>
-        {MOCK_CATEGORIES.map((cat) => (
+        {categories.map((cat) => (
           <TouchableOpacity
-            key={cat}
+            key={String(cat)}
             style={[styles.chip, selectedCategory === cat && styles.chipActive]}
-            onPress={() => setSelectedCategory(cat)}
+            onPress={() => setSelectedCategory(String(cat))}
           >
             <Text style={[styles.chipText, selectedCategory === cat && styles.chipTextActive]}>
-              {cat}
+              {String((cat as any).name ?? cat)}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Lista de produtos */}
-      <FlatList
-        data={MOCK_PRODUCTS}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => (
-          <TouchableOpacity 
-            style={styles.card} 
-            onPress={() => navigation.navigate('ProductDetail')}
-          >
-            <View style={styles.cardImage}>
-              <Text style={styles.cardImagePlaceholder}>📦</Text>
-            </View>
-            <View style={styles.cardInfo}>
-              <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-              <Text style={styles.cardCategory}>{item.category}</Text>
-              <View style={styles.cardFooter}>
-                <Text style={styles.cardPrice}>R$ {item.price.toFixed(2)}</Text>
-                <Text style={styles.cardStock}>Estoque: {item.stock}</Text>
+      {/* Erro */}
+      {error && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>⚠️ {error}</Text>
+        </View>
+      )}
+
+      {/* Loading inicial */}
+      {isLoading ? (
+        <View style={styles.centered}>
+          <Text style={styles.loadingText}>Carregando produtos...</Text>
+        </View>
+      ) : products.length === 0 ? (
+        <View style={styles.centered}>
+          <Text style={styles.emptyText}>📦 Nenhum produto encontrado.</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={products}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+            >
+              <View style={styles.cardImage}>
+                <Text style={styles.cardImagePlaceholder}>📦</Text>
               </View>
-            </View>
-          </TouchableOpacity>
-        )}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor="#4F46E5"
-          />
-        }
-        contentContainerStyle={{ paddingBottom: 100 }}
-      />
+              <View style={styles.cardInfo}>
+                <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+                <Text style={styles.cardCategory}>{item.category}</Text>
+                <View style={styles.cardFooter}>
+                  <Text style={styles.cardPrice}>R$ {item.price.toFixed(2)}</Text>
+                  <Text style={styles.cardStock}>Estoque: {item.stock}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+          ListFooterComponent={
+            isLoadingMore ? (
+              <View style={styles.centered}>
+                <Text style={styles.loadingText}>Carregando mais...</Text>
+              </View>
+            ) : null
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor="#4F46E5"
+            />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.3}
+          contentContainerStyle={{ paddingBottom: 100 }}
+        />
+      )}
 
       {/* Botão flutuante — novo produto */}
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('ProductForm')}>
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('ProductForm', {})}
+      >
         <Text style={styles.fabText}>＋</Text>
       </TouchableOpacity>
     </View>
@@ -163,6 +262,17 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
   chipText: { fontSize: 12, color: '#374151', textTransform: 'capitalize' },
   chipTextActive: { color: '#FFFFFF', fontWeight: '600' },
+  errorBanner: {
+    backgroundColor: '#FEF2F2',
+    padding: 10,
+    marginHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  errorText: { color: '#DC2626', fontSize: 13 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  loadingText: { fontSize: 14, color: '#6B7280' },
+  emptyText: { fontSize: 16, color: '#6B7280' },
   card: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,24 +11,34 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../App';
+import { createProduct, updateProduct, listCategories, ProductFormData } from '../services/products';
 
-const MOCK_CATEGORIES = ['clothing', 'footwear', 'bags', 'accessories'];
+type Route = RouteProp<RootStackParamList, 'ProductForm'>;
+type Nav = NativeStackNavigationProp<RootStackParamList, 'ProductForm'>;
 
 export function ProductFormScreen() {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
-  const [stock, setStock] = useState('');
-  const [category, setCategory] = useState('');
+  const navigation = useNavigation<Nav>();
+  const route = useRoute<Route>();
+  const editingProduct = route.params?.product;
+  const isEditing = !!editingProduct;
+
+  const [title, setTitle] = useState(editingProduct?.title ?? '');
+  const [description, setDescription] = useState(editingProduct?.description ?? '');
+  const [price, setPrice] = useState(editingProduct ? String(editingProduct.price) : '');
+  const [stock, setStock] = useState(editingProduct ? String(editingProduct.stock) : '');
+  const [category, setCategory] = useState(editingProduct?.category ?? '');
+  const [categories, setCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  function handleSubmit() {
-    console.log('title:', title);
-    console.log('description:', description);
-    console.log('price:', price);
-    console.log('stock:', stock);
-    console.log('category:', category);
+  useEffect(() => {
+    listCategories().then(setCategories).catch(() => {});
+    navigation.setOptions({ title: isEditing ? 'Editar Produto' : 'Novo Produto' });
+  }, []);
 
+  function handleSubmit() {
     if (!title.trim()) {
       Alert.alert('Atenção', 'Informe o título.');
       return;
@@ -50,11 +60,34 @@ export function ProductFormScreen() {
       return;
     }
 
+    const payload: ProductFormData = {
+      title: title.trim(),
+      description: description.trim(),
+      price: parseFloat(price),
+      stock: parseInt(stock, 10),
+      category: category.trim(),
+    };
+
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      Alert.alert('Sucesso', 'Produto cadastrado!');
-    }, 1500);
+
+    const request = isEditing
+      ? updateProduct(editingProduct!.id, payload)
+      : createProduct(payload);
+
+    request
+      .then(() => {
+        Alert.alert(
+          'Sucesso',
+          isEditing ? 'Produto atualizado!' : 'Produto cadastrado!',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      })
+      .catch((err: any) => {
+        Alert.alert('Erro', err.message);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   }
 
   return (
@@ -88,12 +121,12 @@ export function ProductFormScreen() {
 
         <Text style={styles.label}>Preço (R$)</Text>
         <TextInput
-        style={styles.input}
-        placeholder="Ex: 49.90"
-        placeholderTextColor="#9CA3AF"
-        keyboardType="numeric"
-        value={price}
-        onChangeText={(text) => setPrice(text.replace(',', '.'))}
+          style={styles.input}
+          placeholder="Ex: 49.90"
+          placeholderTextColor="#9CA3AF"
+          keyboardType="numeric"
+          value={price}
+          onChangeText={(text) => setPrice(text.replace(',', '.'))}
         />
 
         <Text style={styles.label}>Estoque</Text>
@@ -113,14 +146,14 @@ export function ProductFormScreen() {
           style={styles.categoryRow}
           contentContainerStyle={{ gap: 8 }}
         >
-          {MOCK_CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <TouchableOpacity
-              key={cat}
+              key={String(cat)}
               style={[styles.chip, category === cat && styles.chipActive]}
-              onPress={() => setCategory(cat)}
+              onPress={() => setCategory(String((cat as any).name ?? cat))}
             >
               <Text style={[styles.chipText, category === cat && styles.chipTextActive]}>
-                {cat}
+                {String((cat as any).name ?? cat)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -140,9 +173,12 @@ export function ProductFormScreen() {
           {isLoading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitBtnText}>➕ Cadastrar produto</Text>
+            <Text style={styles.submitBtnText}>
+              {isEditing ? '💾 Salvar alterações' : '➕ Cadastrar produto'}
+            </Text>
           )}
         </TouchableOpacity>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
