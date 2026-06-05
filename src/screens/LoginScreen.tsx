@@ -1,4 +1,8 @@
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../App';
 import React, { useState } from 'react';
+
 import {
   View,
   Text,
@@ -11,21 +15,21 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
+
 export function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  function handleLogin() {
-    if (!username.trim() || !password.trim()) {
-      Alert.alert('Atenção', 'Preencha usuário e senha.');
-      return;
-    }
+const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'Login'>>();
 
-    // Simulação de loading — lógica real vem na Fase 2
-    setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 1500);
+function handleLogin() {
+  if (!username.trim() || !password.trim()) {
+    Alert.alert('Atenção', 'Preencha usuário e senha.');
+    return;
   }
+  navigation.navigate('ProductList');
+}
 
   return (
     <KeyboardAvoidingView
