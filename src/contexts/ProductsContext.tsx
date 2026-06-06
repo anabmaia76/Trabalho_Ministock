@@ -16,7 +16,9 @@ interface ProductsContextData {
   products: Product[];
   total: number;
   isLoading: boolean;
+  isLoadingMore: boolean;
   error: string | null;
+  hasMore: boolean;
   fetchProducts: (reset: boolean, searchQuery?: string, category?: string) => Promise<void>;
   addProduct: (data: ProductFormData) => Promise<void>;
   editProduct: (id: number, data: Partial<ProductFormData>) => Promise<void>;
@@ -29,22 +31,33 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
   const skipRef = useRef(0);
+  const isFetchingRef = useRef(false);
 
   async function fetchProducts(
     reset: boolean,
     searchQuery?: string,
     category?: string
   ) {
-    if (reset) skipRef.current = 0;
-    const skip = skipRef.current;
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
 
-    setIsLoading(true);
+    if (reset) {
+      skipRef.current = 0;
+      setIsLoading(true);
+    } else {
+      setIsLoadingMore(true);
+    }
+
     setError(null);
 
     try {
+      const skip = skipRef.current;
       let result;
+
       if (searchQuery?.trim()) {
         result = await searchProducts(searchQuery.trim(), PAGE_SIZE, skip);
       } else if (category) {
@@ -53,22 +66,26 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
         result = await listProducts(PAGE_SIZE, skip);
       }
 
-      skipRef.current = skip + result.products.length;
+      const newSkip = skip + result.products.length;
+      skipRef.current = newSkip;
       setTotal(result.total);
+      setHasMore(newSkip < result.total);
 
       if (reset) {
         setProducts(result.products);
       } else {
         setProducts((prev) => {
           const existingIds = new Set(prev.map((p) => p.id));
-          const newProducts = result.products.filter((p) => !existingIds.has(p.id));
-          return [...prev, ...newProducts];
+          const newOnes = result.products.filter((p) => !existingIds.has(p.id));
+          return [...prev, ...newOnes];
         });
       }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
+      isFetchingRef.current = false;
     }
   }
 
@@ -93,7 +110,7 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ProductsContext.Provider value={{
-      products, total, isLoading, error,
+      products, total, isLoading, isLoadingMore, error, hasMore,
       fetchProducts, addProduct, editProduct, removeProduct,
     }}>
       {children}

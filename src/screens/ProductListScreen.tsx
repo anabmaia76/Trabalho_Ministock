@@ -59,7 +59,7 @@ const TRADUCOES: Record<string, string> = {
 export function ProductListScreen() {
   const navigation = useNavigation<Nav>();
   const { logout } = useAuth();
-  const { products, isLoading, error, fetchProducts } = useProducts();
+  const { products, isLoading, isLoadingMore, hasMore, error, fetchProducts } = useProducts();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -100,6 +100,7 @@ export function ProductListScreen() {
   }
 
   async function handleLoadMore() {
+    if (!hasMore || isLoadingMore) return;
     await fetchProducts(false, searchQuery, selectedCategory);
   }
 
@@ -184,11 +185,7 @@ export function ProductListScreen() {
           />
         )}
         ListEmptyComponent={<EmptyState message="Nenhum produto encontrado." />}
-        ListFooterComponent={
-          isLoading && products.length > 0 ? (
-            <Loading message="Carregando mais..." />
-          ) : null
-        }
+        ListFooterComponent={isLoadingMore ? <Loading message="Carregando mais..." /> : null}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
