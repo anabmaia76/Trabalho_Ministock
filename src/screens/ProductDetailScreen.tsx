@@ -18,16 +18,20 @@ import { useProducts } from '../contexts/ProductsContext';
 type Route = RouteProp<RootStackParamList, 'ProductDetail'>;
 type Nav = NativeStackNavigationProp<RootStackParamList, 'ProductDetail'>;
 
+const LOCAL_ID_THRESHOLD = 100000;
+
 export function ProductDetailScreen() {
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
   const { productId } = route.params;
-  const { removeProduct } = useProducts();
+  const { products, removeProduct } = useProducts();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isLocal = productId >= LOCAL_ID_THRESHOLD;
 
   useFocusEffect(
     useCallback(() => {
@@ -35,13 +39,25 @@ export function ProductDetailScreen() {
       setIsLoading(true);
       setError(null);
 
-      getProduct(productId)
-        .then((p) => { if (active) setProduct(p); })
-        .catch((err) => { if (active) setError(err.message); })
-        .finally(() => { if (active) setIsLoading(false); });
+      if (isLocal) {
+        // Produto local — busca do contexto
+        const localProduct = products.find((p) => p.id === productId);
+        if (localProduct) {
+          setProduct(localProduct);
+        } else {
+          setError('Produto não encontrado.');
+        }
+        setIsLoading(false);
+      } else {
+        // Produto da API — busca da API
+        getProduct(productId)
+          .then((p) => { if (active) setProduct(p); })
+          .catch((err) => { if (active) setError(err.message); })
+          .finally(() => { if (active) setIsLoading(false); });
+      }
 
       return () => { active = false; };
-    }, [productId])
+    }, [productId, products])
   );
 
   function handleDelete() {
@@ -124,7 +140,7 @@ export function ProductDetailScreen() {
           </View>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>Avaliação</Text>
-            <Text style={styles.statValue}>⭐ {product.rating.toFixed(1)}</Text>
+            <Text style={styles.statValue}>⭐ {product.rating?.toFixed(1) ?? '—'}</Text>
           </View>
         </View>
 

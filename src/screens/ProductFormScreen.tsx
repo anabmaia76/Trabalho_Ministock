@@ -20,6 +20,40 @@ import { useProducts } from '../contexts/ProductsContext';
 type Route = RouteProp<RootStackParamList, 'ProductForm'>;
 type Nav = NativeStackNavigationProp<RootStackParamList, 'ProductForm'>;
 
+interface Category {
+  slug: string;
+  name: string;
+}
+
+const TRADUCOES: Record<string, string> = {
+  'smartphones': 'Smartphones',
+  'laptops': 'Laptops',
+  'fragrances': 'Perfumes',
+  'skincare': 'Skincare',
+  'groceries': 'Mercearia',
+  'home-decoration': 'Decoração',
+  'furniture': 'Móveis',
+  'tops': 'Blusas',
+  'womens-dresses': 'Vestidos',
+  'womens-shoes': 'Calçados Fem.',
+  'mens-shirts': 'Camisas Masc.',
+  'mens-shoes': 'Calçados Masc.',
+  'mens-watches': 'Relógios Masc.',
+  'womens-watches': 'Relógios Fem.',
+  'womens-bags': 'Bolsas',
+  'womens-jewellery': 'Joias',
+  'sunglasses': 'Óculos',
+  'automotive': 'Automotivo',
+  'motorcycle': 'Motos',
+  'lighting': 'Iluminação',
+  'tablets': 'Tablets',
+  'mobile-accessories': 'Acessórios Mobile',
+  'sports-accessories': 'Esportes',
+  'vehicle': 'Veículos',
+  'kitchen-accessories': 'Cozinha',
+  'beauty': 'Beleza',
+};
+
 export function ProductFormScreen() {
   const { addProduct, editProduct } = useProducts();
   const navigation = useNavigation<Nav>();
@@ -32,12 +66,25 @@ export function ProductFormScreen() {
   const [price, setPrice] = useState(editingProduct ? String(editingProduct.price) : '');
   const [stock, setStock] = useState(editingProduct ? String(editingProduct.stock) : '');
   const [category, setCategory] = useState(editingProduct?.category ?? '');
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    listCategories().then(setCategories).catch(() => {});
-    navigation.setOptions({ title: isEditing ? 'Editar Produto' : 'Novo Produto' });
+    listCategories()
+      .then((data) => {
+        const formatted = (data as any[]).map((cat: any) => ({
+          slug: typeof cat === 'string' ? cat : cat.slug,
+          name: typeof cat === 'string'
+            ? (TRADUCOES[cat] ?? cat)
+            : (TRADUCOES[cat.slug] ?? cat.name ?? cat.slug),
+        }));
+        setCategories(formatted);
+      })
+      .catch(() => {});
+    navigation.setOptions({
+      title: isEditing ? 'Editar Produto' : 'Novo Produto',
+      headerBackTitle: 'Back',
+    });
   }, []);
 
   function handleSubmit() {
@@ -131,19 +178,21 @@ export function ProductFormScreen() {
         >
           {categories.map((cat) => (
             <TouchableOpacity
-              key={String(cat)}
-              style={[styles.chip, category === cat && styles.chipActive]}
-              onPress={() => setCategory(String((cat as any).name ?? cat))}
+              key={cat.slug}
+              style={[styles.chip, category === cat.slug && styles.chipActive]}
+              onPress={() => setCategory(cat.slug)}
             >
-              <Text style={[styles.chipText, category === cat && styles.chipTextActive]}>
-                {String((cat as any).name ?? cat)}
+              <Text style={[styles.chipText, category === cat.slug && styles.chipTextActive]}>
+                {cat.name}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
         {category ? (
-          <Text style={styles.categorySelected}>Selecionada: {category}</Text>
+          <Text style={styles.categorySelected}>
+            Selecionada: {TRADUCOES[category] ?? category}
+          </Text>
         ) : (
           <Text style={styles.categoryPlaceholder}>Selecione uma categoria acima</Text>
         )}

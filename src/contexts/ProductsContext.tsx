@@ -27,6 +27,9 @@ interface ProductsContextData {
 
 const ProductsContext = createContext<ProductsContextData>({} as ProductsContextData);
 
+// IDs locais começam em 100000 para não conflitar com a API
+const LOCAL_ID_THRESHOLD = 100000;
+
 export function ProductsProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
@@ -72,7 +75,13 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
       setHasMore(newSkip < result.total);
 
       if (reset) {
-        setProducts(result.products);
+        // Mantém os produtos locais no topo ao recarregar
+        setProducts((prev) => {
+          const localProducts = prev.filter((p) => p.id >= LOCAL_ID_THRESHOLD);
+          const existingIds = new Set(result.products.map((p) => p.id));
+          const uniqueLocal = localProducts.filter((p) => !existingIds.has(p.id));
+          return [...uniqueLocal, ...result.products];
+        });
       } else {
         setProducts((prev) => {
           const existingIds = new Set(prev.map((p) => p.id));
@@ -91,19 +100,30 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
 
   async function addProduct(data: ProductFormData) {
     const newProduct = await createProduct(data);
-    setProducts((prev) => [{ ...newProduct, id: Date.now() }, ...prev]);
+    const localId = Date.now() + LOCAL_ID_THRESHOLD;
+    setProducts((prev) => [{ ...newProduct, id: localId }, ...prev]);
     setTotal((prev) => prev + 1);
   }
 
   async function editProduct(id: number, data: Partial<ProductFormData>) {
-    await updateProduct(id, data);
+    const isLocal = id >= LOCAL_ID_THRESHOLD;
+
+    if (!isLocal) {
+      await updateProduct(id, data);
+    }
+
     setProducts((prev) =>
       prev.map((p) => (p.id === id ? { ...p, ...data } : p))
     );
   }
 
   async function removeProduct(id: number) {
-    await deleteProduct(id);
+    const isLocal = id >= LOCAL_ID_THRESHOLD;
+
+    if (!isLocal) {
+      await deleteProduct(id);
+    }
+
     setProducts((prev) => prev.filter((p) => p.id !== id));
     setTotal((prev) => prev - 1);
   }

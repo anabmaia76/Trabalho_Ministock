@@ -16,15 +16,13 @@ export async function login(username: string, password: string): Promise<AuthRes
     password,
     expiresInMins: 60,
   });
-  
-  console.log('Resposta da API:', JSON.stringify(data));
-  
+
   const token = data.token || (data as any).accessToken;
-  
+
   if (!token) {
     throw new Error('Token não encontrado na resposta.');
   }
-  
+
   await AsyncStorage.setItem('@ministock_token', token);
   return { ...data, token };
 }
