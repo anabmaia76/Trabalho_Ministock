@@ -14,12 +14,14 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
-import { createProduct, updateProduct, listCategories, ProductFormData } from '../services/products';
+import { listCategories, ProductFormData } from '../services/products';
+import { useProducts } from '../contexts/ProductsContext';
 
 type Route = RouteProp<RootStackParamList, 'ProductForm'>;
 type Nav = NativeStackNavigationProp<RootStackParamList, 'ProductForm'>;
 
 export function ProductFormScreen() {
+  const { addProduct, editProduct } = useProducts();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const editingProduct = route.params?.product;
@@ -39,26 +41,11 @@ export function ProductFormScreen() {
   }, []);
 
   function handleSubmit() {
-    if (!title.trim()) {
-      Alert.alert('Atenção', 'Informe o título.');
-      return;
-    }
-    if (!description.trim()) {
-      Alert.alert('Atenção', 'Informe a descrição.');
-      return;
-    }
-    if (!price.trim() || isNaN(Number(price))) {
-      Alert.alert('Atenção', 'Informe um preço válido.');
-      return;
-    }
-    if (!stock.trim() || isNaN(Number(stock))) {
-      Alert.alert('Atenção', 'Informe um estoque válido.');
-      return;
-    }
-    if (!category.trim()) {
-      Alert.alert('Atenção', 'Informe a categoria.');
-      return;
-    }
+    if (!title.trim()) { Alert.alert('Atenção', 'Informe o título.'); return; }
+    if (!description.trim()) { Alert.alert('Atenção', 'Informe a descrição.'); return; }
+    if (!price.trim() || isNaN(Number(price))) { Alert.alert('Atenção', 'Informe um preço válido.'); return; }
+    if (!stock.trim() || isNaN(Number(stock))) { Alert.alert('Atenção', 'Informe um estoque válido.'); return; }
+    if (!category.trim()) { Alert.alert('Atenção', 'Informe a categoria.'); return; }
 
     const payload: ProductFormData = {
       title: title.trim(),
@@ -71,8 +58,8 @@ export function ProductFormScreen() {
     setIsLoading(true);
 
     const request = isEditing
-      ? updateProduct(editingProduct!.id, payload)
-      : createProduct(payload);
+      ? editProduct(editingProduct!.id, payload)
+      : addProduct(payload);
 
     request
       .then(() => {
@@ -82,12 +69,8 @@ export function ProductFormScreen() {
           [{ text: 'OK', onPress: () => navigation.goBack() }]
         );
       })
-      .catch((err: any) => {
-        Alert.alert('Erro', err.message);
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
+      .catch((err: any) => Alert.alert('Erro', err.message))
+      .finally(() => setIsLoading(false));
   }
 
   return (
@@ -178,7 +161,6 @@ export function ProductFormScreen() {
             </Text>
           )}
         </TouchableOpacity>
-
       </ScrollView>
     </KeyboardAvoidingView>
   );

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,89 +13,94 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
-import {
-  listProducts,
-  searchProducts,
-  listCategories,
-  getProductsByCategory,
-  Product,
-} from '../services/products';
+import { listCategories } from '../services/products';
 import { useAuth } from '../contexts/AuthContext';
+import { useProducts } from '../contexts/ProductsContext';
+import { ProductCard } from '../components/ProductCard';
+import { Loading } from '../components/Loading';
+import { EmptyState } from '../components/EmptyState';
 
-const PAGE_SIZE = 10;
+interface Category {
+  slug: string;
+  name: string;
+}
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'ProductList'>;
+
+const TRADUCOES: Record<string, string> = {
+  'smartphones': 'Smartphones',
+  'laptops': 'Laptops',
+  'fragrances': 'Perfumes',
+  'skincare': 'Skincare',
+  'groceries': 'Mercearia',
+  'home-decoration': 'Decoração',
+  'furniture': 'Móveis',
+  'tops': 'Blusas',
+  'womens-dresses': 'Vestidos',
+  'womens-shoes': 'Calçados Fem.',
+  'mens-shirts': 'Camisas Masc.',
+  'mens-shoes': 'Calçados Masc.',
+  'mens-watches': 'Relógios Masc.',
+  'womens-watches': 'Relógios Fem.',
+  'womens-bags': 'Bolsas',
+  'womens-jewellery': 'Joias',
+  'sunglasses': 'Óculos',
+  'automotive': 'Automotivo',
+  'motorcycle': 'Motos',
+  'lighting': 'Iluminação',
+  'tablets': 'Tablets',
+  'mobile-accessories': 'Acessórios Mobile',
+  'sports-accessories': 'Esportes',
+  'vehicle': 'Veículos',
+  'kitchen-accessories': 'Cozinha',
+  'beauty': 'Beleza',
+};
 
 export function ProductListScreen() {
   const navigation = useNavigation<Nav>();
   const { logout } = useAuth();
+  const { products, isLoading, error, fetchProducts } = useProducts();
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const skipRef = useRef(0);
-  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
-    listCategories().then(setCategories).catch(() => {});
+    listCategories()
+      .then((data) => {
+        const formatted = (data as any[]).map((cat: any) => ({
+          slug: typeof cat === 'string' ? cat : cat.slug,
+          name: typeof cat === 'string'
+            ? (TRADUCOES[cat] ?? cat)
+            : (TRADUCOES[cat.slug] ?? cat.name ?? cat.slug),
+        }));
+        setCategories(formatted);
+      })
+      .catch(() => {});
   }, []);
 
-  const fetchProducts = useCallback(async (reset: boolean) => {
-    const skip = reset ? 0 : skipRef.current;
-    try {
-      setError(null);
-      let result;
-
-      if (searchQuery.trim()) {
-        result = await searchProducts(searchQuery.trim(), PAGE_SIZE, skip);
-      } else if (selectedCategory) {
-        result = await getProductsByCategory(selectedCategory, PAGE_SIZE, skip);
-      } else {
-        result = await listProducts(PAGE_SIZE, skip);
-      }
-
-      if (reset) {
-        setProducts(result.products);
-        skipRef.current = result.products.length;
-      } else {
-        setProducts((prev) => [...prev, ...result.products]);
-        skipRef.current += result.products.length;
-      }
-
-      setHasMore(skipRef.current < result.total);
-    } catch (err: any) {
-      setError(err.message);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      fetchProducts(true, '', '');
+      return;
     }
+    fetchProducts(true, searchQuery, selectedCategory);
   }, [searchQuery, selectedCategory]);
-
-  useEffect(() => {
-    setIsLoading(true);
-    fetchProducts(true).finally(() => setIsLoading(false));
-  }, [fetchProducts]);
-
-  useEffect(() => {
-    if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(() => {}, 400);
-  }, [searchQuery]);
 
   async function handleRefresh() {
     setIsRefreshing(true);
-    await fetchProducts(true);
-    setIsRefreshing(false);
+    try {
+      await fetchProducts(true, searchQuery, selectedCategory);
+    } finally {
+      setIsRefreshing(false);
+    }
   }
 
   async function handleLoadMore() {
-    if (isLoadingMore || !hasMore) return;
-    setIsLoadingMore(true);
-    await fetchProducts(false);
-    setIsLoadingMore(false);
+    await fetchProducts(false, searchQuery, selectedCategory);
   }
 
   function handleLogout() {
@@ -105,9 +110,22 @@ export function ProductListScreen() {
     ]);
   }
 
+  if (isLoading && products.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>📦 MiniStock</Text>
+          <TouchableOpacity onPress={handleLogout}>
+            <Text style={styles.logoutBtn}>Sair</Text>
+          </TouchableOpacity>
+        </View>
+        <Loading message="Buscando produtos..." />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>📦 MiniStock</Text>
         <TouchableOpacity onPress={handleLogout}>
@@ -115,7 +133,6 @@ export function ProductListScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Barra de busca */}
       <TextInput
         style={styles.searchInput}
         placeholder="Buscar produtos..."
@@ -124,7 +141,6 @@ export function ProductListScreen() {
         onChangeText={setSearchQuery}
       />
 
-      {/* Filtro de categorias */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -141,76 +157,50 @@ export function ProductListScreen() {
         </TouchableOpacity>
         {categories.map((cat) => (
           <TouchableOpacity
-            key={String(cat)}
-            style={[styles.chip, selectedCategory === cat && styles.chipActive]}
-            onPress={() => setSelectedCategory(String(cat))}
+            key={cat.slug}
+            style={[styles.chip, selectedCategory === cat.slug && styles.chipActive]}
+            onPress={() => setSelectedCategory(cat.slug)}
           >
-            <Text style={[styles.chipText, selectedCategory === cat && styles.chipTextActive]}>
-              {String((cat as any).name ?? cat)}
+            <Text style={[styles.chipText, selectedCategory === cat.slug && styles.chipTextActive]}>
+              {cat.name}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Erro */}
       {error && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>⚠️ {error}</Text>
         </View>
       )}
 
-      {/* Loading inicial */}
-      {isLoading ? (
-        <View style={styles.centered}>
-          <Text style={styles.loadingText}>Carregando produtos...</Text>
-        </View>
-      ) : products.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyText}>📦 Nenhum produto encontrado.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={products}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-            >
-              <View style={styles.cardImage}>
-                <Text style={styles.cardImagePlaceholder}>📦</Text>
-              </View>
-              <View style={styles.cardInfo}>
-                <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-                <Text style={styles.cardCategory}>{item.category}</Text>
-                <View style={styles.cardFooter}>
-                  <Text style={styles.cardPrice}>R$ {item.price.toFixed(2)}</Text>
-                  <Text style={styles.cardStock}>Estoque: {item.stock}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
-          ListFooterComponent={
-            isLoadingMore ? (
-              <View style={styles.centered}>
-                <Text style={styles.loadingText}>Carregando mais...</Text>
-              </View>
-            ) : null
-          }
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              tintColor="#4F46E5"
-            />
-          }
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.3}
-          contentContainerStyle={{ paddingBottom: 100 }}
-        />
-      )}
+      <FlatList
+        data={products}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item }) => (
+          <ProductCard
+            product={item}
+            onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+          />
+        )}
+        ListEmptyComponent={<EmptyState message="Nenhum produto encontrado." />}
+        ListFooterComponent={
+          isLoading && products.length > 0 ? (
+            <Loading message="Carregando mais..." />
+          ) : null
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#4F46E5"
+          />
+        }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.3}
+        contentContainerStyle={{ paddingBottom: 100 }}
+      />
 
-      {/* Botão flutuante — novo produto */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => navigation.navigate('ProductForm', {})}
@@ -270,37 +260,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   errorText: { color: '#DC2626', fontSize: 13 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  loadingText: { fontSize: 14, color: '#6B7280' },
-  emptyText: { fontSize: 16, color: '#6B7280' },
-  card: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginHorizontal: 16,
-    marginVertical: 6,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cardImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardImagePlaceholder: { fontSize: 32 },
-  cardInfo: { flex: 1, marginLeft: 12, justifyContent: 'space-between' },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  cardCategory: { fontSize: 12, color: '#6B7280', marginTop: 2, textTransform: 'capitalize' },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  cardPrice: { fontSize: 14, fontWeight: '700', color: '#4F46E5' },
-  cardStock: { fontSize: 12, color: '#9CA3AF' },
   fab: {
     position: 'absolute',
     bottom: 28,

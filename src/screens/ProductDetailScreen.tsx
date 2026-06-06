@@ -12,7 +12,8 @@ import {
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../App';
-import { getProduct, deleteProduct, Product } from '../services/products';
+import { getProduct, Product } from '../services/products';
+import { useProducts } from '../contexts/ProductsContext';
 
 type Route = RouteProp<RootStackParamList, 'ProductDetail'>;
 type Nav = NativeStackNavigationProp<RootStackParamList, 'ProductDetail'>;
@@ -21,6 +22,7 @@ export function ProductDetailScreen() {
   const route = useRoute<Route>();
   const navigation = useNavigation<Nav>();
   const { productId } = route.params;
+  const { removeProduct } = useProducts();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,7 +56,7 @@ export function ProductDetailScreen() {
           onPress: async () => {
             setIsDeleting(true);
             try {
-              await deleteProduct(productId);
+              await removeProduct(productId);
               Alert.alert('Sucesso', 'Produto removido!', [
                 { text: 'OK', onPress: () => navigation.goBack() },
               ]);
@@ -93,8 +95,6 @@ export function ProductDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-
-      {/* Imagem */}
       {product.thumbnail ? (
         <Image
           source={{ uri: product.thumbnail }}
@@ -113,7 +113,6 @@ export function ProductDetailScreen() {
         {product.brand && <Text style={styles.brand}>Marca: {product.brand}</Text>}
         <Text style={styles.description}>{product.description}</Text>
 
-        {/* Stats */}
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
             <Text style={styles.statLabel}>Preço</Text>
@@ -129,7 +128,6 @@ export function ProductDetailScreen() {
           </View>
         </View>
 
-        {/* Botões */}
         <View style={styles.actions}>
           <TouchableOpacity
             style={styles.editBtn}

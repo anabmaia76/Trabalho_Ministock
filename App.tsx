@@ -8,6 +8,7 @@ import { ProductDetailScreen } from './src/screens/ProductDetailScreen';
 import { ProductFormScreen } from './src/screens/ProductFormScreen';
 import { Product } from './src/services/products';
 import { View, ActivityIndicator } from 'react-native';
+import { ProductsProvider } from './src/contexts/ProductsContext';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -32,7 +33,6 @@ function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName={token ? 'ProductList' : 'Login'}
         screenOptions={{
           headerStyle: { backgroundColor: '#4F46E5' },
           headerTintColor: '#FFFFFF',
@@ -46,7 +46,7 @@ function AppNavigator() {
             options={{ headerShown: false }}
           />
         ) : (
-          <>
+          <Stack.Group>
             <Stack.Screen
               name="ProductList"
               component={ProductListScreen}
@@ -62,17 +62,20 @@ function AppNavigator() {
               component={ProductFormScreen}
               options={{ title: 'Produto' }}
             />
-          </>
+          </Stack.Group>
         )}
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
 
+
 export default function App() {
   return (
     <AuthProvider>
-      <AppNavigator />
+      <ProductsProvider>
+        <AppNavigator />
+      </ProductsProvider>
     </AuthProvider>
   );
 }
