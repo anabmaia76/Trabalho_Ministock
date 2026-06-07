@@ -25,7 +25,6 @@ export function LoginScreen() {
       Alert.alert('Atenção', 'Preencha usuário e senha.');
       return;
     }
-
     setIsLoading(true);
     try {
       await login(username.trim(), password);
@@ -42,24 +41,32 @@ export function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.box}>
-        <Text style={styles.logo}>📦</Text>
-        <Text style={styles.title}>MiniStock</Text>
-        <Text style={styles.subtitle}>Gestão de estoque mobile</Text>
+        {/* Ícone */}
+        <View style={styles.iconContainer}>
+          <Ionicons name="cube-outline" size={32} color="#FFFFFF" />
+        </View>
 
+        <Text style={styles.title}>MiniStock</Text>
+        <Text style={styles.subtitle}>GERENCIAMENTO DE ESTOQUE</Text>
+
+        {/* Usuário */}
+        <Text style={styles.label}>USUÁRIO</Text>
         <TextInput
           style={styles.input}
-          placeholder="Usuário"
-          placeholderTextColor="#9CA3AF"
+          placeholder="Digite seu usuário"
+          placeholderTextColor="#6B7280"
           autoCapitalize="none"
           value={username}
           onChangeText={setUsername}
         />
 
+        {/* Senha */}
+        <Text style={styles.label}>SENHA</Text>
         <View style={styles.passwordContainer}>
           <TextInput
             style={styles.passwordInput}
-            placeholder="Senha"
-            placeholderTextColor="#9CA3AF"
+            placeholder="••••••••"
+            placeholderTextColor="#6B7280"
             secureTextEntry={!showPassword}
             value={password}
             onChangeText={setPassword}
@@ -71,11 +78,12 @@ export function LoginScreen() {
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={22}
-              color="#9CA3AF"
+              color="#6B7280"
             />
           </TouchableOpacity>
         </View>
 
+        {/* Botão */}
         <TouchableOpacity
           style={[styles.button, isLoading && styles.buttonDisabled]}
           onPress={handleLogin}
@@ -95,52 +103,74 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#0F0F13',
     justifyContent: 'center',
     padding: 24,
   },
   box: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: '#1A1A24',
+    borderRadius: 20,
     padding: 28,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  logo: { fontSize: 52, marginBottom: 8 },
-  title: { fontSize: 26, fontWeight: '700', color: '#111827' },
-  subtitle: { fontSize: 13, color: '#6B7280', marginBottom: 28 },
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: '#7C3AED',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    alignSelf: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 11,
+    color: '#6B7280',
+    textAlign: 'center',
+    letterSpacing: 2,
+    marginBottom: 32,
+  },
+  label: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
   input: {
     width: '100%',
     height: 48,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#2D2D3D',
     borderRadius: 10,
     paddingHorizontal: 14,
     fontSize: 15,
-    color: '#111827',
-    backgroundColor: '#F9FAFB',
-    marginBottom: 12,
+    color: '#FFFFFF',
+    backgroundColor: '#13131A',
+    marginBottom: 20,
   },
   passwordContainer: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#2D2D3D',
     borderRadius: 10,
-    backgroundColor: '#F9FAFB',
-    marginBottom: 12,
+    backgroundColor: '#13131A',
+    marginBottom: 28,
   },
   passwordInput: {
     flex: 1,
     height: 48,
     paddingHorizontal: 14,
     fontSize: 15,
-    color: '#111827',
+    color: '#FFFFFF',
   },
   eyeBtn: {
     paddingHorizontal: 12,
@@ -149,13 +179,12 @@ const styles = StyleSheet.create({
   },
   button: {
     width: '100%',
-    height: 48,
-    backgroundColor: '#4F46E5',
-    borderRadius: 10,
+    height: 52,
+    backgroundColor: '#7C3AED',
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 });

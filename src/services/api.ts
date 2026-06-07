@@ -36,6 +36,10 @@ api.interceptors.response.use(
 
     const status = error.response?.status;
 
+    if (status === 400) {
+      return Promise.reject(new Error('Usuário ou senha incorretos.'));
+    }
+
     if (status === 401) {
       await AsyncStorage.removeItem('@ministock_token');
       if (_onUnauthorized) _onUnauthorized();

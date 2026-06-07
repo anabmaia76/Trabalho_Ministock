@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useRef } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Product,
   ProductFormData,
@@ -11,6 +12,8 @@ import {
 } from '../services/products';
 
 const PAGE_SIZE = 10;
+const LOCAL_ID_THRESHOLD = 100000;
+const STORAGE_KEY = '@ministock_local_products';
 
 interface ProductsContextData {
   products: Product[];
@@ -19,6 +22,7 @@ interface ProductsContextData {
   isLoadingMore: boolean;
   error: string | null;
   hasMore: boolean;
+  localProducts: Product[];
   fetchProducts: (reset: boolean, searchQuery?: string, category?: string) => Promise<void>;
   addProduct: (data: ProductFormData) => Promise<void>;
   editProduct: (id: number, data: Partial<ProductFormData>) => Promise<void>;
@@ -27,11 +31,11 @@ interface ProductsContextData {
 
 const ProductsContext = createContext<ProductsContextData>({} as ProductsContextData);
 
-// IDs locais começam em 100000 para não conflitar com a API
-const LOCAL_ID_THRESHOLD = 100000;
-
 export function ProductsProvider({ children }: { children: React.ReactNode }) {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [apiProducts, setApiProducts] = useState<Product[]>([]);
+  const [localProducts, setLocalProducts] = useState<Product[]>([]);
+  const [currentSearch, setCurrentSearch] = useState('');
+  const [currentCategory, setCurrentCategory] = useState('');
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -40,6 +44,46 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
   const skipRef = useRef(0);
   const isFetchingRef = useRef(false);
 
+  // Carrega produtos locais do AsyncStorage ao iniciar
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then((data) => {
+        if (data) setLocalProducts(JSON.parse(data));
+      })
+      .catch(() => {});
+  }, []);
+
+  // Salva produtos locais no AsyncStorage sempre que mudam
+  useEffect(() => {
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(localProducts)).catch(() => {});
+  }, [localProducts]);
+
+  // Produtos exibidos: locais filtrados + produtos da API
+  const products = React.useMemo(() => {
+    const hasFilter = currentSearch.trim() || currentCategory;
+
+    if (hasFilter) {
+      // Com filtro: filtra locais pelo termo de busca também
+      const filteredLocals = currentSearch.trim()
+        ? localProducts.filter((p) =>
+            p.title.toLowerCase().includes(currentSearch.toLowerCase()) ||
+            p.category.toLowerCase().includes(currentSearch.toLowerCase())
+          )
+        : currentCategory
+        ? localProducts.filter((p) => p.category === currentCategory)
+        : [];
+
+      const apiIds = new Set(apiProducts.map((p) => p.id));
+      const uniqueLocals = filteredLocals.filter((p) => !apiIds.has(p.id));
+      return [...uniqueLocals, ...apiProducts];
+    }
+
+    // Sem filtro: todos os locais + API
+    const apiIds = new Set(apiProducts.map((p) => p.id));
+    const uniqueLocals = localProducts.filter((p) => !apiIds.has(p.id));
+    return [...uniqueLocals, ...apiProducts];
+  }, [apiProducts, localProducts, currentSearch, currentCategory]);
+
   async function fetchProducts(
     reset: boolean,
     searchQuery?: string,
@@ -47,6 +91,9 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
   ) {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
+
+    setCurrentSearch(searchQuery ?? '');
+    setCurrentCategory(category ?? '');
 
     if (reset) {
       skipRef.current = 0;
@@ -75,15 +122,9 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
       setHasMore(newSkip < result.total);
 
       if (reset) {
-        // Mantém os produtos locais no topo ao recarregar
-        setProducts((prev) => {
-          const localProducts = prev.filter((p) => p.id >= LOCAL_ID_THRESHOLD);
-          const existingIds = new Set(result.products.map((p) => p.id));
-          const uniqueLocal = localProducts.filter((p) => !existingIds.has(p.id));
-          return [...uniqueLocal, ...result.products];
-        });
+        setApiProducts(result.products);
       } else {
-        setProducts((prev) => {
+        setApiProducts((prev) => {
           const existingIds = new Set(prev.map((p) => p.id));
           const newOnes = result.products.filter((p) => !existingIds.has(p.id));
           return [...prev, ...newOnes];
@@ -101,36 +142,41 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
   async function addProduct(data: ProductFormData) {
     const newProduct = await createProduct(data);
     const localId = Date.now() + LOCAL_ID_THRESHOLD;
-    setProducts((prev) => [{ ...newProduct, id: localId }, ...prev]);
+    const productWithId = { ...newProduct, id: localId };
+    setLocalProducts((prev) => [productWithId, ...prev]);
     setTotal((prev) => prev + 1);
   }
 
   async function editProduct(id: number, data: Partial<ProductFormData>) {
     const isLocal = id >= LOCAL_ID_THRESHOLD;
-
     if (!isLocal) {
       await updateProduct(id, data);
     }
-
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...data } : p))
-    );
+    if (isLocal) {
+      setLocalProducts((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, ...data } : p))
+      );
+    } else {
+      setApiProducts((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, ...data } : p))
+      );
+    }
   }
 
   async function removeProduct(id: number) {
     const isLocal = id >= LOCAL_ID_THRESHOLD;
-
     if (!isLocal) {
       await deleteProduct(id);
+      setApiProducts((prev) => prev.filter((p) => p.id !== id));
+    } else {
+      setLocalProducts((prev) => prev.filter((p) => p.id !== id));
     }
-
-    setProducts((prev) => prev.filter((p) => p.id !== id));
     setTotal((prev) => prev - 1);
   }
 
   return (
     <ProductsContext.Provider value={{
-      products, total, isLoading, isLoadingMore, error, hasMore,
+      products, total, isLoading, isLoadingMore, error, hasMore, localProducts,
       fetchProducts, addProduct, editProduct, removeProduct,
     }}>
       {children}

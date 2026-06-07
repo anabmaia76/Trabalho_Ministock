@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList } from '../../App';
 import { listCategories, ProductFormData } from '../services/products';
 import { useProducts } from '../contexts/ProductsContext';
@@ -33,7 +34,7 @@ const TRADUCOES: Record<string, string> = {
   'groceries': 'Mercearia',
   'home-decoration': 'Decoração',
   'furniture': 'Móveis',
-  'tops': 'Blusas',
+  'tops': 'Moda',
   'womens-dresses': 'Vestidos',
   'womens-shoes': 'Calçados Fem.',
   'mens-shirts': 'Camisas Masc.',
@@ -47,7 +48,7 @@ const TRADUCOES: Record<string, string> = {
   'motorcycle': 'Motos',
   'lighting': 'Iluminação',
   'tablets': 'Tablets',
-  'mobile-accessories': 'Acessórios Mobile',
+  'mobile-accessories': 'Acessórios',
   'sports-accessories': 'Esportes',
   'vehicle': 'Veículos',
   'kitchen-accessories': 'Cozinha',
@@ -83,21 +84,28 @@ export function ProductFormScreen() {
       .catch(() => {});
     navigation.setOptions({
       title: isEditing ? 'Editar Produto' : 'Novo Produto',
-      headerBackTitle: 'Back',
+      headerBackTitle: 'Voltar',
     });
   }, []);
 
   function handleSubmit() {
     if (!title.trim()) { Alert.alert('Atenção', 'Informe o título.'); return; }
     if (!description.trim()) { Alert.alert('Atenção', 'Informe a descrição.'); return; }
-    if (!price.trim() || isNaN(Number(price))) { Alert.alert('Atenção', 'Informe um preço válido.'); return; }
+    
+    // Tratamento do preço antes da validação para aceitar o formato "360,00"
+    const normalizedPrice = price.replace(/\./g, '').replace(',', '.');
+    if (!price.trim() || isNaN(Number(normalizedPrice))) { 
+      Alert.alert('Atenção', 'Informe um preço válido.'); 
+      return; 
+    }
+    
     if (!stock.trim() || isNaN(Number(stock))) { Alert.alert('Atenção', 'Informe um estoque válido.'); return; }
     if (!category.trim()) { Alert.alert('Atenção', 'Informe a categoria.'); return; }
 
     const payload: ProductFormData = {
       title: title.trim(),
       description: description.trim(),
-      price: parseFloat(price),
+      price: parseFloat(normalizedPrice),      
       stock: parseInt(stock, 10),
       category: category.trim(),
     };
@@ -122,54 +130,72 @@ export function ProductFormScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: '#0F0F13' }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
         style={styles.container}
         contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
       >
-        <Text style={styles.label}>Título</Text>
+        {/* Título */}
+        <Text style={styles.label}>TÍTULO</Text>
         <TextInput
           style={styles.input}
           placeholder="Ex: Camiseta azul"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor="#6B7280"
           value={title}
           onChangeText={setTitle}
         />
 
-        <Text style={styles.label}>Descrição</Text>
+        {/* Descrição */}
+        <Text style={styles.label}>DESCRIÇÃO</Text>
         <TextInput
           style={[styles.input, styles.inputMultiline]}
           placeholder="Descrição do produto"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor="#6B7280"
           multiline
           numberOfLines={4}
           value={description}
           onChangeText={setDescription}
         />
 
-        <Text style={styles.label}>Preço (R$)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: 49.90"
-          placeholderTextColor="#9CA3AF"
-          keyboardType="numeric"
-          value={price}
-          onChangeText={(text) => setPrice(text.replace(',', '.'))}
-        />
+        {/* Preço e Estoque lado a lado */}
+        <View style={styles.row}>
+          <View style={styles.rowItem}>
+            <Text style={styles.label}>PREÇO (R$)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ex: 49,90"
+              placeholderTextColor="#6B7280"
+              keyboardType="numeric"
+              value={price}
+              onChangeText={(text) => {
+                const onlyNumbers = text.replace(/\D/g, '');
+                const limited = onlyNumbers.slice(0, 8);
+                const number = parseInt(limited || '0', 10);
+                const formatted = (number / 100).toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                });
+                setPrice(formatted);
+              }}
+            />
+          </View>
+          <View style={styles.rowItem}>
+            <Text style={styles.label}>ESTOQUE</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ex: 100"
+              placeholderTextColor="#6B7280"
+              keyboardType="number-pad"
+              value={stock}
+              onChangeText={setStock}
+            />
+          </View>
+        </View>
 
-        <Text style={styles.label}>Estoque</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ex: 100"
-          placeholderTextColor="#9CA3AF"
-          keyboardType="number-pad"
-          value={stock}
-          onChangeText={setStock}
-        />
-
-        <Text style={styles.label}>Categoria</Text>
+        {/* Categoria */}
+        <Text style={styles.label}>CATEGORIA</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -197,6 +223,7 @@ export function ProductFormScreen() {
           <Text style={styles.categoryPlaceholder}>Selecione uma categoria acima</Text>
         )}
 
+        {/* Botão */}
         <TouchableOpacity
           style={[styles.submitBtn, isLoading && styles.btnDisabled]}
           onPress={handleSubmit}
@@ -205,9 +232,16 @@ export function ProductFormScreen() {
           {isLoading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.submitBtnText}>
-              {isEditing ? '💾 Salvar alterações' : '➕ Cadastrar produto'}
-            </Text>
+            <>
+              <Ionicons
+                name={isEditing ? 'save-outline' : 'add-circle-outline'}
+                size={20}
+                color="#FFFFFF"
+              />
+              <Text style={styles.submitBtnText}>
+                {isEditing ? 'Salvar alterações' : 'Cadastrar produto'}
+              </Text>
+            </>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -216,61 +250,71 @@ export function ProductFormScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
+  container: { flex: 1, backgroundColor: '#0F0F13' },
   label: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#374151',
-    marginBottom: 6,
-    marginTop: 14,
+    color: '#9CA3AF',
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginTop: 16,
   },
   input: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1A1A24',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#2D2D3D',
     paddingHorizontal: 14,
     height: 48,
     fontSize: 14,
-    color: '#111827',
+    color: '#FFFFFF',
   },
   inputMultiline: {
     height: 100,
     paddingTop: 12,
     textAlignVertical: 'top',
   },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  rowItem: {
+    flex: 1,
+  },
   categoryRow: { maxHeight: 40, marginBottom: 4 },
   chip: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1A1A24',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#2D2D3D',
     height: 32,
     justifyContent: 'center',
   },
-  chipActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
-  chipText: { fontSize: 12, color: '#374151', textTransform: 'capitalize' },
+  chipActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
+  chipText: { fontSize: 12, color: '#9CA3AF' },
   chipTextActive: { color: '#FFFFFF', fontWeight: '600' },
   categorySelected: {
     fontSize: 13,
-    color: '#4F46E5',
+    color: '#7C3AED',
     fontWeight: '600',
     marginTop: 8,
   },
   categoryPlaceholder: {
     fontSize: 13,
-    color: '#9CA3AF',
+    color: '#6B7280',
     marginTop: 8,
   },
   submitBtn: {
-    marginTop: 28,
+    marginTop: 32,
     height: 52,
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#7C3AED',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
   btnDisabled: { opacity: 0.6 },
   submitBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },

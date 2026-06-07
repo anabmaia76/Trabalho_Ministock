@@ -33,11 +33,11 @@ function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        screenOptions={{
-          headerStyle: { backgroundColor: '#4F46E5' },
-          headerTintColor: '#FFFFFF',
-          headerTitleStyle: { fontWeight: '700' },
-        }}
+      screenOptions={{
+        headerStyle: { backgroundColor: '#0F0F13' },
+        headerTintColor: '#FFFFFF',
+        headerTitleStyle: { fontWeight: '700', color: '#FFFFFF' },
+      }}
       >
         {!token ? (
           <Stack.Screen
