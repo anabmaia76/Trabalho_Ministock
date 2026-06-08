@@ -22,7 +22,7 @@ out/
 .next/
 .nuxt/
 
-# Variáveis de ambiente (Arquivos com senhas e chaves secretas - NUNCA envie ao GitHub)
+# Variáveis de ambiente (Arquivos com senhas e chaves secretas)
 .env
 .env.local
 .env.development.local
@@ -30,7 +30,7 @@ out/
 .env.production.local
 *.env
 
-# Arquivos do Sistema Operacional (Arquivos inúteis criados pelo Windows/Mac)
+# Arquivos do Sistema Operacional 
 Thumbs.db
 db.properties
 Desktop.ini

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -61,30 +61,39 @@ export function ProductDetailScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isLocal = productId >= LOCAL_ID_THRESHOLD;
+  // UseRef para evitar que o hook tente buscar o produto na API após ser deletado
+  const isNavigatingOut = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
+      // Se estamos saindo da tela por exclusão, não faz nada
+      if (isNavigatingOut.current) return;
+
       let active = true;
       setIsLoading(true);
       setError(null);
 
-      if (isLocal) {
-        const localProduct = products.find((p) => p.id === productId);
-        if (localProduct) {
-          setProduct(localProduct);
-        } else {
-          setError('Produto não encontrado.');
-        }
+      const productFromContext = products.find((p) => p.id === productId);
+
+      if (productFromContext) {
+        setProduct(productFromContext);
         setIsLoading(false);
       } else {
         getProduct(productId)
-          .then((p) => { if (active) setProduct(p); })
-          .catch((err) => { if (active) setError(err.message); })
-          .finally(() => { if (active) setIsLoading(false); });
+          .then((p) => {
+            if (active) setProduct(p);
+          })
+          .catch((err) => {
+            if (active) setError(err.message);
+          })
+          .finally(() => {
+            if (active) setIsLoading(false);
+          });
       }
 
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }, [productId, products])
   );
 
@@ -100,11 +109,20 @@ export function ProductDetailScreen() {
           onPress: async () => {
             setIsDeleting(true);
             try {
+              // Bloqueia disparos indesejados do useFocusEffect antes de rodar a remoção
+              isNavigatingOut.current = true;
+              
               await removeProduct(productId);
+              
               Alert.alert('Sucesso', 'Produto removido!', [
-                { text: 'OK', onPress: () => navigation.goBack() },
+                { 
+                  text: 'OK', 
+                  onPress: () => navigation.goBack() 
+                },
               ]);
             } catch (err: any) {
+              // Se falhar, reverte a flag para permitir recarga caso necessário
+              isNavigatingOut.current = false;
               Alert.alert('Erro', err.message);
             } finally {
               setIsDeleting(false);

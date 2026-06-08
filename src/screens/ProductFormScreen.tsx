@@ -64,7 +64,17 @@ export function ProductFormScreen() {
 
   const [title, setTitle] = useState(editingProduct?.title ?? '');
   const [description, setDescription] = useState(editingProduct?.description ?? '');
-  const [price, setPrice] = useState(editingProduct ? String(editingProduct.price) : '');
+  
+  // CORREÇÃO AQUI: Garante que o preço inicial venha formatado no padrão pt-BR (ex: "14,99")
+  const [price, setPrice] = useState(
+    editingProduct
+      ? Number(editingProduct.price).toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      : ''
+  );
+  
   const [stock, setStock] = useState(editingProduct ? String(editingProduct.stock) : '');
   const [category, setCategory] = useState(editingProduct?.category ?? '');
   const [categories, setCategories] = useState<Category[]>([]);
