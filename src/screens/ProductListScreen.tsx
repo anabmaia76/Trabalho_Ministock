@@ -57,6 +57,15 @@ const TRADUCOES: Record<string, string> = {
   'beauty': 'Beleza',
 };
 
+function normalizeString(str: string): string {
+  if (!str) return '';
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
 function ProductGridCard({ product, onPress }: { product: Product; onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
@@ -110,13 +119,13 @@ export function ProductListScreen() {
       fetchProducts(true, '', '');
       return;
     }
-    fetchProducts(true, searchQuery, selectedCategory);
-  }, [searchQuery, selectedCategory]);
+    fetchProducts(true, '', selectedCategory);
+  }, [selectedCategory]);
 
   async function handleRefresh() {
     setIsRefreshing(true);
     try {
-      await fetchProducts(true, searchQuery, selectedCategory);
+      await fetchProducts(true, '', selectedCategory);
     } finally {
       setIsRefreshing(false);
     }
@@ -124,7 +133,7 @@ export function ProductListScreen() {
 
   async function handleLoadMore() {
     if (!hasMore || isLoadingMore) return;
-    await fetchProducts(false, searchQuery, selectedCategory);
+    await fetchProducts(false, '', selectedCategory);
   }
 
   function handleLogout() {
@@ -133,6 +142,13 @@ export function ProductListScreen() {
       { text: 'Sair', style: 'destructive', onPress: logout },
     ]);
   }
+
+  const filteredProducts = products.filter((product) => {
+    if (!searchQuery.trim()) return true;
+    const normalizedTitle = normalizeString(product.title);
+    const normalizedQuery = normalizeString(searchQuery);
+    return normalizedTitle.includes(normalizedQuery);
+  });
 
   return (
     <View style={styles.container}>
@@ -188,11 +204,11 @@ export function ProductListScreen() {
         </View>
       )}
 
-      {isLoading && products.length === 0 ? (
+      {isLoading && filteredProducts.length === 0 ? (
         <Loading message="Buscando produtos..." />
       ) : (
         <FlatList
-          data={products}
+          data={filteredProducts}
           keyExtractor={(item) => String(item.id)}
           numColumns={2}
           columnWrapperStyle={{ gap: 12, justifyContent: 'flex-start' }}
@@ -205,8 +221,7 @@ export function ProductListScreen() {
           ListEmptyComponent={
             !isLoading ? <EmptyState message="Nenhum produto encontrado." /> : null
           }
-          ListFooterComponent={isLoadingMore ? <Loading message="Carregando mais..." /> : null}
-          refreshControl={
+ListFooterComponent={isLoadingMore && !searchQuery.trim() ? <Loading message="Carregando mais..." /> : null}          refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
