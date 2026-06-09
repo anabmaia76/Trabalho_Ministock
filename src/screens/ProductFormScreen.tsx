@@ -151,7 +151,7 @@ export function ProductFormScreen() {
         <Text style={styles.label}>TÍTULO</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ex: Vestido Modal"
+          placeholder="Ex: Camiseta azul"
           placeholderTextColor="#6B7280"
           value={title}
           onChangeText={setTitle}
@@ -175,7 +175,7 @@ export function ProductFormScreen() {
             <Text style={styles.label}>PREÇO (R$)</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ex: 99,99"
+              placeholder="Ex: 49,90"
               placeholderTextColor="#6B7280"
               keyboardType="numeric"
               value={price}

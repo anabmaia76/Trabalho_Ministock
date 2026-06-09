@@ -44,7 +44,6 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
   const skipRef = useRef(0);
   const isFetchingRef = useRef(false);
 
-  // Carrega produtos locais do AsyncStorage ao iniciar
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((data) => {
@@ -53,21 +52,24 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, []);
 
-  // Salva produtos locais no AsyncStorage sempre que mudam
   useEffect(() => {
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(localProducts)).catch(() => {});
   }, [localProducts]);
 
-  // Produtos exibidos: locais filtrados + produtos da API
+  const removeAccents = (str: string) => {
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  };
+
   const products = React.useMemo(() => {
     const hasFilter = currentSearch.trim() || currentCategory;
 
     if (hasFilter) {
-      // Com filtro: filtra locais pelo termo de busca também
+      const searchNormalized = removeAccents(currentSearch.trim());
+      
       const filteredLocals = currentSearch.trim()
         ? localProducts.filter((p) =>
-            p.title.toLowerCase().includes(currentSearch.toLowerCase()) ||
-            p.category.toLowerCase().includes(currentSearch.toLowerCase())
+            removeAccents(p.title).includes(searchNormalized) ||
+            removeAccents(p.category).includes(searchNormalized)
           )
         : currentCategory
         ? localProducts.filter((p) => p.category === currentCategory)
@@ -78,7 +80,6 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
       return [...uniqueLocals, ...apiProducts];
     }
 
-    // Sem filtro: todos os locais + API
     const apiIds = new Set(apiProducts.map((p) => p.id));
     const uniqueLocals = localProducts.filter((p) => !apiIds.has(p.id));
     return [...uniqueLocals, ...apiProducts];
@@ -97,6 +98,7 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
 
     if (reset) {
       skipRef.current = 0;
+      setApiProducts([]);
       setIsLoading(true);
     } else {
       setIsLoadingMore(true);
@@ -110,16 +112,29 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
 
       if (searchQuery?.trim()) {
         result = await searchProducts(searchQuery.trim(), PAGE_SIZE, skip);
+        
+        const termo = removeAccents(searchQuery.trim());
+        result.products = result.products.filter(
+          (p) =>
+            removeAccents(p.title).includes(termo) ||
+            removeAccents(p.category).includes(termo)
+        );
       } else if (category) {
         result = await getProductsByCategory(category, PAGE_SIZE, skip);
       } else {
         result = await listProducts(PAGE_SIZE, skip);
       }
 
-      const newSkip = skip + result.products.length;
+      const newSkip = skip + PAGE_SIZE;
       skipRef.current = newSkip;
-      setTotal(result.total);
-      setHasMore(newSkip < result.total);
+
+      if (searchQuery?.trim()) {
+        setHasMore(result.products.length > 0);
+      } else {
+        setHasMore(newSkip < result.total);
+      }
+
+      setTotal(searchQuery?.trim() ? result.products.length : result.total);
 
       if (reset) {
         setApiProducts(result.products);

@@ -57,15 +57,6 @@ const TRADUCOES: Record<string, string> = {
   'beauty': 'Beleza',
 };
 
-function normalizeString(str: string): string {
-  if (!str) return '';
-  return str
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
-}
-
 function ProductGridCard({ product, onPress }: { product: Product; onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
@@ -96,6 +87,7 @@ export function ProductListScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isFirstRender = useRef(true);
 
@@ -114,18 +106,28 @@ export function ProductListScreen() {
   }, []);
 
   useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 400);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchQuery]);
+
+  useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       fetchProducts(true, '', '');
       return;
     }
-    fetchProducts(true, '', selectedCategory);
-  }, [selectedCategory]);
+    fetchProducts(true, debouncedSearch, selectedCategory);
+  }, [debouncedSearch, selectedCategory]);
 
   async function handleRefresh() {
     setIsRefreshing(true);
     try {
-      await fetchProducts(true, '', selectedCategory);
+      await fetchProducts(true, debouncedSearch, selectedCategory);
     } finally {
       setIsRefreshing(false);
     }
@@ -133,7 +135,7 @@ export function ProductListScreen() {
 
   async function handleLoadMore() {
     if (!hasMore || isLoadingMore) return;
-    await fetchProducts(false, '', selectedCategory);
+    await fetchProducts(false, debouncedSearch, selectedCategory);
   }
 
   function handleLogout() {
@@ -142,13 +144,6 @@ export function ProductListScreen() {
       { text: 'Sair', style: 'destructive', onPress: logout },
     ]);
   }
-
-  const filteredProducts = products.filter((product) => {
-    if (!searchQuery.trim()) return true;
-    const normalizedTitle = normalizeString(product.title);
-    const normalizedQuery = normalizeString(searchQuery);
-    return normalizedTitle.includes(normalizedQuery);
-  });
 
   return (
     <View style={styles.container}>
@@ -204,11 +199,11 @@ export function ProductListScreen() {
         </View>
       )}
 
-      {isLoading && filteredProducts.length === 0 ? (
+      {isLoading && products.length === 0 ? (
         <Loading message="Buscando produtos..." />
       ) : (
         <FlatList
-          data={filteredProducts}
+          data={products}
           keyExtractor={(item) => String(item.id)}
           numColumns={2}
           columnWrapperStyle={{ gap: 12, justifyContent: 'flex-start' }}
@@ -221,7 +216,8 @@ export function ProductListScreen() {
           ListEmptyComponent={
             !isLoading ? <EmptyState message="Nenhum produto encontrado." /> : null
           }
-ListFooterComponent={isLoadingMore && !searchQuery.trim() ? <Loading message="Carregando mais..." /> : null}          refreshControl={
+          ListFooterComponent={isLoadingMore ? <Loading message="Carregando mais..." /> : null}
+          refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
