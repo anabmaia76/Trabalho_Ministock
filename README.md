@@ -346,4 +346,4 @@ https://github.com/anabmaia76/Trabalho_Ministock
 
 **Ana Beatriz Maia**
 
-Projeto acadêmico desenvolvido para a disciplina de Desenvolvimento Mobile utilizando React Native, Expo e Axios.
+Projeto acadêmico desenvolvido para a disciplina de Programação para Dispositivos Móveis utilizando React Native, Expo e Axios.
